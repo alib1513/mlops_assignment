@@ -1,0 +1,25 @@
+version: '3.9'
+
+services:
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: ./flask_app
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    depends_on:
+      - redis
+    volumes: [ './flask_app:/flask_app' ]
+
+  worker:
+    build:
+      context: ./celery_worker
+      dockerfile: Dockerfile
+    depends_on:
+      - redis
+    volumes: [ './celery_worker:/celery_worker' ]

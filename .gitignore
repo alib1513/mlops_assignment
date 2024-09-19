@@ -1,0 +1,8 @@
+test_images/*
+*.old
+
+# Python pycache
+*.pyc
+__pycache__/
+*.log
+
