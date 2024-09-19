@@ -1,4 +1,5 @@
-import os, time, json
+import os, io, json
+from PIL import Image
 from celery import Celery
 from celery.utils.log import get_task_logger
 from ultralytics import YOLO
@@ -20,20 +21,14 @@ celery_worker.conf.broker_connection_retry_on_startup = True
 
 
 class YoloModel:
-    def __init__(self, model_name="yolov8n.pt", conf = 0.5):
+    def __init__(self, model_name="yolov8n.pt", conf = 0.3):
         self.model = YOLO(model_name)
         self.model.conf = conf
 
-    def detect_objects(self, names, images):
-        results = self.model(images)
-        results_dict = {}
-        # results_list = []
-        
-        for index, result in enumerate(results):
-            results_dict[names[index]] = json.loads(result.to_json())[0]
-            # results_list.append(json.loads(result.to_json())[0])
+    def detect_objects(self, image):
+        results = self.model(image)
 
-        return results_dict
+        return json.loads(results[0].to_json())[0]
 
 
 
@@ -43,20 +38,24 @@ yolo_model = YoloModel(model_name=MODEL_PATH)
 
 
 @celery_worker.task(name='tasks.run_inference', trail=True)
-def run_inference(image_data):
+def run_inference(name, image):
     logger.info('Got Request - Starting Inference')
 
-    image_data = json.loads(image_data)
+    # Save the image
 
-    names = image_data["names"]
-    images = image_data["images"]
+    # give the path to the worker
+
+    # image_data = json.loads(image_data)
+
+    # names = image_data["names"]
+    # images = image_data["images"]
 
     # time.sleep(3)
-    results = yolo_model.detect_objects(names, images)
+    result = yolo_model.detect_objects(Image.open(io.BytesIO(image)))
 
     logger.info('Inference Finished')
 
 
 
 
-    return json.dumps({"results":results})
+    return json.dumps({"name":name, "result": result})

@@ -25,64 +25,42 @@ def start_task():
         return jsonify({'error': 'No image provided'}), 400
 
 
-    files = request.files.getlist('file')
-    app.logger.info(files)
+    file = request.files.getlist('file')[0]
+    app.logger.info(file)
     
-    valid_names = []
-    valid_images = []
-    invalid_images = []
-    
+
+
     try:
-        # Iterate over the uploaded files
-        for file in files:
-            if file.filename == '':
-                invalid_images.append({'filename': file.filename, 'error': 'No selected file'})
-                continue
+            if file.filename == '' or not allowed_file(file.filename):
+                response = {
+                'error': 'No valid image provided',
+                'filename': file.filename
+                }
+                return jsonify(response), 400
             
-            if not allowed_file(file.filename):
-                invalid_images.append({'filename': file.filename, 'error': 'Invalid Image type'})
-                continue
-            
-            try:
-                # Read the image data
-                image_data_bytes = file.read()
-                # Attempt to open the image to check for corruption
-                image_data = Image.open(io.BytesIO(image_data_bytes))
-                image_data.verify()  # Verifies the image is not corrupted
 
-                app.logger.info(image_data)
+            # Read the image data
+            image_data_bytes = file.read()
+            # Attempt to open the image to check for corruption
+            image_data = Image.open(io.BytesIO(image_data_bytes))
+            image_data.verify()  # Verifies the image is not corrupted
 
-                valid_names.append(file.filename)
-                valid_images.append(image_data)
+            app.logger.info("Starting Celery Task for Valid Image")
 
-            except Exception as e:
-                invalid_images.append({'filename': file.filename, 'error': str(e)})
+            # task = celery_worker.send_task('tasks.run_inference', kwargs={'image_data': json.dumps(image_data)})
+            task = celery_worker.send_task('tasks.run_inference', kwargs={
+                "name" : file.filename,
+                "image" : image_data_bytes
+            })
 
-
-
-        if len(valid_images) > 0:
-            app.logger.info("Starting Celery Task for Valid Images")
-
-            image_data = {
-                "names" : valid_names,
-                "images" : valid_images
-            }
-
-            task = celery_worker.send_task('tasks.run_inference', kwargs={'image_data': json.dumps(image_data)})
             app.logger.info(task.backend)
 
             response = {
                 'task_id': task.id,
-                "valid_images": valid_names,
-                'invalid_images': invalid_images
+                "image": file.filename
             }
             return jsonify(response), 202
-        else:
-            response = {
-                'error': 'No valid image provided',
-                'invalid_images': invalid_images
-            }
-            return jsonify(response), 400
+            
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -102,7 +80,7 @@ def get_status(task_id):
 def task_result(task_id):
     result = celery_worker.AsyncResult(task_id)
     print(result)
-    return jsonify({"task_id": task_id, "status": result.status, "result": result.result})
+    return jsonify({"task_id": task_id, "status": result.status, "result": json.loads(result.result)})
 
 
 @app.route('/')
