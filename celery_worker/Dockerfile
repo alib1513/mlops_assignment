@@ -1,4 +1,4 @@
-FROM ultralytics/ultralytics:8.2.97-python
+FROM ultralytics/ultralytics:8.2.98
 
 WORKDIR /celery_worker
 

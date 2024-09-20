@@ -58,8 +58,6 @@ This project is a Flask application that leverages Redis as a message broker for
     REPLICAS=1
     ```
 
-    - **Assumptions**: As I currently do not have access to an AWS server, so I will demonstrate vertical scalability by increasing the number of containers and workers on the same machine.
-
     - **Replicas**: We will run multiple instances of the Celery worker by increasing the number of replicas for the Celery container and Flask workers.
 
 
