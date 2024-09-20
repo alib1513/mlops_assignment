@@ -16,4 +16,4 @@ COPY . /flask_app
 
 
 # Command to run the Flask app
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+CMD ["gunicorn", "--workers","4", "--bind", "0.0.0.0:5000", "app:app"]

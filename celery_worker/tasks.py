@@ -28,7 +28,7 @@ class YoloModel:
     def detect_objects(self, image):
         results = self.model(image)
 
-        return json.loads(results[0].to_json())[0]
+        return json.loads(results[0].to_json())
 
 
 
@@ -41,21 +41,10 @@ yolo_model = YoloModel(model_name=MODEL_PATH)
 def run_inference(name, image):
     logger.info('Got Request - Starting Inference')
 
-    # Save the image
-
-    # give the path to the worker
-
-    # image_data = json.loads(image_data)
-
-    # names = image_data["names"]
-    # images = image_data["images"]
-
     # time.sleep(3)
     result = yolo_model.detect_objects(Image.open(io.BytesIO(image)))
 
     logger.info('Inference Finished')
 
 
-
-
-    return json.dumps({"name":name, "result": result})
+    return json.dumps({"image_name": name, "result": result})

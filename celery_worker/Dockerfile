@@ -16,4 +16,4 @@ COPY . /celery_worker
 
 
 # Command to run the Celery worker
-CMD ["celery", "-A", "tasks.celery_worker", "worker", "--loglevel=info"]
+CMD ["celery", "-A", "tasks.celery_worker", "worker", "--concurrency=4" , "--loglevel=info"]
