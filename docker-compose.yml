@@ -22,9 +22,10 @@ services:
     build:
       context: ./celery_worker
       dockerfile: Dockerfile
+    runtime: "nvidia"
     depends_on:
       - redis
-    command: [ "celery", "-A", "tasks.celery_worker", "worker", "--loglevel=info" ]
+    command: [ "celery", "-A", "tasks.celery_worker", "worker", "--concurrency=1", "--loglevel=info" ]
     env_file:
       - .env
     deploy:
