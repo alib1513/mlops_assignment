@@ -11,18 +11,12 @@ services:
       context: ./flask_app
       dockerfile: Dockerfile
     ports:
-      - "${FLASK_RUN_PORT}:5000"
+      - "${FLASK_RUN_PORT}:${FLASK_CONTAINER_PORT}"
     env_file:
       - .env
     depends_on:
       - redis
-    volumes: [ './flask_app:/flask_app' ]
-    command: [ "gunicorn", "--workers", "4", "--bind", "0.0.0.0:5000", "app:app" ]
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
+    command: [ "gunicorn", "--workers", "${REPLICAS}", "--bind", "${FLASK_RUN_HOST}:${FLASK_RUN_PORT}", "app:app" ]
 
   worker:
     build:
@@ -30,11 +24,8 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - redis
-    volumes: [ './celery_worker:/celery_worker' ]
-    command: [ "celery", "-A", "tasks.celery_worker", "worker", "--concurrency=4", "--loglevel=info" ]
+    command: [ "celery", "-A", "tasks.celery_worker", "worker", "--loglevel=info" ]
+    env_file:
+      - .env
     deploy:
-      replicas: 2
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
+      replicas: ${REPLICAS}

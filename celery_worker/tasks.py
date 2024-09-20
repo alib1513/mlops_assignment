@@ -12,13 +12,6 @@ CELERY_BROKER = os.environ.get('CELERY_BROKER')
 CELERY_BACKEND = os.environ.get('CELERY_BACKEND')
 MODEL_PATH = os.environ.get('MODEL_PATH')
 
-celery_worker =  Celery('tasks', broker=CELERY_BROKER, backend=CELERY_BACKEND)
-celery_worker.conf.broker_connection_retry_on_startup = True
-
-
-
-
-
 
 class YoloModel:
     def __init__(self, model_name="yolov8n.pt", conf = 0.3):
@@ -33,7 +26,8 @@ class YoloModel:
 
 
 yolo_model = YoloModel(model_name=MODEL_PATH)
-
+celery_worker =  Celery('tasks', broker=CELERY_BROKER, backend=CELERY_BACKEND)
+celery_worker.conf.broker_connection_retry_on_startup = True
 
 
 

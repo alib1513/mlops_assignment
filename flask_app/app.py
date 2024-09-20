@@ -1,14 +1,18 @@
-import os, io, json
+import os, io, json, logging
 from PIL import Image
 from flask import Flask, jsonify, request
-
-app = Flask(__name__)
-
 from celery import Celery
+
+ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
+
+# Create FLask app
+app = Flask(__name__)
+app.logger.handlers[0].setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', '%Y-%m-%d %H:%M:%S'))
+app.logger.setLevel(logging.DEBUG)
+
 celery_worker = Celery('tasks', broker=os.environ.get('CELERY_BROKER'), backend=os.environ.get('CELERY_BACKEND'))
 
 
-ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -16,23 +20,23 @@ def allowed_file(filename):
 
 @app.route('/start_task', methods=['POST'])
 def start_task():
-    app.logger.info("Inside start_task route")
+    app.logger.info("Start Task Route")
 
     if 'file' not in request.files:
         return jsonify({'error': 'No image provided'}), 400
 
 
     file = request.files.getlist('file')[0]
-    app.logger.info(file)
     
 
 
     try:
         if file.filename == '' or not allowed_file(file.filename):
             response = {
-            'error': 'No valid image provided',
+            'error': f'No valid image provided. It should be among the allowed extensions: {ALLOWED_EXTENSIONS}',
             'filename': file.filename
             }
+            app.logger.info(f"{file.filename} file was Invalid Image")
             return jsonify(response), 400
         
 
@@ -42,7 +46,7 @@ def start_task():
         image_data = Image.open(io.BytesIO(image_data_bytes))
         image_data.verify()  # Verifies the image is not corrupted
 
-        app.logger.info("Starting Celery Task for a Valid Image")
+        app.logger.info("Initiating a Celery Task for the Valid Image")
 
 
         task = celery_worker.send_task('tasks.run_inference', kwargs={
@@ -50,7 +54,7 @@ def start_task():
             "image" : image_data_bytes
         })
 
-        app.logger.info(task.backend)
+        app.logger.info(f"Task Added with id: {task.id}")
 
         response = {
             'task_id': task.id,
@@ -61,13 +65,14 @@ def start_task():
             
 
     except Exception as e:
+        app.logger.error(f"Error while creating the task {e}")
         return jsonify({'error': str(e)}), 500
 
 
 
 @app.route('/task_result/<task_id>', methods=['GET'])
 def task_result(task_id):
-    app.logger.info("Inside Task Result Route")
+    app.logger.info(f"Task Result Route for Task ID: {task_id}")
     result = celery_worker.AsyncResult(task_id)
     response = {"task_id": task_id}
 
@@ -84,13 +89,13 @@ def task_result(task_id):
     elif result.state == 'FAILURE':
         response['error'] = str(result.info)
     
-
+    app.logger.info(f"Response for Task ID: {task_id}\n{response}")
     return jsonify(response)
 
 
 @app.route('/')
 def main():
-    app.logger.info("Inside Home Route")
+    app.logger.info("Home Route")
     response = {
     "api_version": "1.0",
     "description": "Welcome to the Object Detection API. This API allows you to upload images for processing and check the status and result of your tasks.",
@@ -227,8 +232,7 @@ def main():
 
 if __name__ == '__main__':
     # Get HOST and PORT from environment variables
-    host = os.getenv('FLASK_RUN_HOST', '127.0.0.1')  # Default to localhost
+    host = os.getenv('FLASK_RUN_HOST', '0.0.0.0')  # Default to 0.0.0.0
     port = int(os.getenv('FLASK_RUN_PORT', 5000))     # Default to port 5000
     
     app.run(host=host, port=port)
-    # app.run(host='0.0.0.0', port=5000)

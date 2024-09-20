@@ -3,7 +3,7 @@
 
 # MLOps Assignment App
 
-This project is a Flask application that leverages Redis as a message broker for Celery. It is designed with vertical scalability in mind, allowing you to optimize resource usage on a single server while handling asynchronous tasks efficiently.
+This project is a Flask application that leverages Redis as a message broker for Celery. It used to run inference on images to detect objects. It is designed with vertical scalability in mind, allowing you to optimize resource usage on a single server while handling asynchronous tasks efficiently.
 
 ## Table of Contents
 
@@ -13,12 +13,12 @@ This project is a Flask application that leverages Redis as a message broker for
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
 - [Running the Application](#running-the-application)
-- [Vertical Scalability](#vertical-scalability)
 
 
 ## Features
 
 - Asynchronous task processing with Celery to run inference on images
+- YoloV8 is used to detect objects in an image 
 - Redis as a message broker
 - Flask web framework
 - Easy configuration using environment variables
@@ -52,6 +52,19 @@ This project is a Flask application that leverages Redis as a message broker for
     FLASK_RUN_HOST=0.0.0.0
     FLASK_RUN_PORT=5000
    ```
+3. To scale vertically, update the REPLICAS variable in `.env` file located in the project root:
+
+    ```
+    REPLICAS=1
+    ```
+
+    - **Assumptions**: As I currently do not have access to an AWS server, so I will demonstrate vertical scalability by increasing the number of containers and workers on the same machine.
+
+    - **Replicas**: We will run multiple instances of the Celery worker by increasing the number of replicas for the Celery container and Flask workers.
+
+
+        If the value is changed to 4, the system will run 4 concurrent containers to handle the workload more efficiently.
+
 
 
 
@@ -64,7 +77,7 @@ docker-compose up --build
 ```
 This command will start the Flask app, Redis, and Celery worker in separate containers.
 
-### Home route list alls the paths
+### / home route list alls the paths
 ```bash
 curl http://0.0.0.0:5000/
 ```
@@ -198,25 +211,27 @@ curl http://0.0.0.0:5000/
             }
             }
         ]
-        }
+    }
 
 
 
-### Upload the image and start the task on using the following the curl command
+### /start_task route is used to upload the image and add the task to the queue using the following the curl command
 
 ```bash
 curl -X POST -F "file=@test_images/bus.jpg" http://0.0.0.0:5000/start_task
 ```
 
 If the task was accepted, then the api will return the following:
+
     {
-    "image":"bus.jpg",
-    "status":"Accepted. Goto /task_result/<task_id> route to check status",
-    "task_id":"3cee6d21-bdd5-4cb5-befd-34e2690b93be"
+        "image":"bus.jpg",
+        "status":"Accepted. Goto /task_result/<task_id> route to check status",
+        "task_id":"3cee6d21-bdd5-4cb5-befd-34e2690b93be"
     }
 
 
-### Check the task for results for a task ID using the following the curl command
+### /task_result/<task_id> route is used to check Task Status and Retrieve Results 
+You can check the status of a task and fetch its results using the following curl command with the task ID:
 
 ```bash
 curl http://0.0.0.0:5000/task_result/3cee6d21-bdd5-4cb5-befd-34e2690b93be
@@ -310,65 +325,28 @@ If task is successfully completed, then api will return the following
 
 
 
-## Vertical Scalability
+### Architecture Design Diagram
 
-Vertical scalability allows you to optimize your application's performance on a single server by:
 
-- **Increasing Resources**: Allocate more CPU and RAM to your containers via Docker Compose.
-
-Resource limits can be adjusted in `docker-compose.yml`:
-
-```yaml
-services:
-  api:
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-
-  worker:
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
 ```
-
-
-- **Optimizing Celery Workers**: Adjust the concurrency settings of Celery workers if cpu cores are increased to handle more tasks simultaneously.
-
-Number of concurrent workers for a single celery instance can be adjusted in `docker-compose.yml` by updating the concurrency tag:
-
-```yaml
-services:
-
-  worker:
-    command: [ "celery", "-A", "tasks.celery_worker", "worker", "--concurrency=4", "--loglevel=info" ]
+[ Client ]
+    |
+    |  HTTP Request (Upload Image, Start Task, Retrieve Results)
+    v
+[ Flask Application ]
+    |           |
+    |           |  Publish Task
+    |           |
+    v           v
+[   Redis   ] <-------------------
+    |           |                 |
+    |           |  Fetch Task     |
+    |           |                 |
+    v           v                 |
+[ Celery Workers ] <-------------- 
+    |
+    |  Run YOLO Model
+    |
+    v
+[ Store Results Back in Redis ]
 ```
-
-- **Replicas**: Running multiple instances of the celery worker by increasing multiple replicas of Celery
-
-```yaml
-services:
-
-  worker:
-    deploy:
-      replicas: 2
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-```
-
-- **Increasing the number of gunicorn worker**: The gunicorn allows to specify the number of worker processes that it should spawn which more to handle request concurrently. It can updated by changing the number of workers in `docker-compose.yml`
-
-```yaml
-services:
-
-  worker:
-    command: [ "gunicorn", "--workers", "4", "--bind", "0.0.0.0:5000", "app:app" ]
-```
-
----
-
