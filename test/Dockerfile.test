@@ -1,0 +1,14 @@
+# Use the official Python image
+FROM python:3.9-slim
+
+WORKDIR /test
+
+COPY requirements.txt .
+RUN pip3 install -r requirements.txt
+
+
+COPY . /test
+
+
+# Command to run the tests
+CMD ["python3", "test_api.py"]

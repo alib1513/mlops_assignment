@@ -12,8 +12,9 @@ This project is a Flask application that leverages Redis as a message broker for
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
-- [Running the Application](#running-the-application)
-
+- [Running the Application with Manual Testing](#running-the-application-manually-testing)
+- [Running the Application with Automated Testing](#running-the-application-with-automated-testing)
+- [Architecture Design Diagram](#architecture-design-diagram)
 
 ## Features
 
@@ -51,6 +52,7 @@ This project is a Flask application that leverages Redis as a message broker for
    ```env
     FLASK_RUN_HOST=0.0.0.0
     FLASK_RUN_PORT=5000
+    FLASK_CONTAINER_PORT=5000
    ```
 3. To scale vertically, update the REPLICAS variable in `.env` file located in the project root:
 
@@ -58,24 +60,31 @@ This project is a Flask application that leverages Redis as a message broker for
     REPLICAS=1
     ```
 
-    - **Replicas**: We will run multiple instances of the Celery worker by increasing the number of replicas for the Celery container and Flask workers.
-
-
-        If the value is changed to 4, the system will run 4 concurrent containers to handle the workload more efficiently.
+    - **Replicas**: We will run multiple instances of the Celery worker by increasing the number of replicas for the Celery container and Flask workers. If the value is changed to 4, the system will run 4 concurrent containers to handle the workload more efficiently.
 
 
 
 
-## Running the Application
+## Running the Application with Manual Testing
 
-To build and start the application, run:
+1. **Build and Start the Services**:
+   Use the default Docker Compose file (`docker-compose.yml`) to build and start the services:
+   ```bash
+   docker-compose up --build
+   ```
+    This command will start the Flask app, Redis, and Celery worker in separate containers.
 
-```bash
-docker-compose up --build
-```
-This command will start the Flask app, Redis, and Celery worker in separate containers.
+2. **Access the Application**:
+   Once the services are running, you can access the API at `http://0.0.0.0:5000`.
 
-### / home route list alls the paths
+3. **Stopping the Application**:
+   To stop the running services, use:
+   ```bash
+   docker-compose down
+   ```
+
+
+### `/` home route lists all the paths
 ```bash
 curl http://0.0.0.0:5000/
 ```
@@ -128,72 +137,7 @@ curl http://0.0.0.0:5000/
                 "example_success": {
                     "image_name": "bus.jpg",
                     "result": [
-                        {
-                        "box": {
-                            "x1": 22.87127,
-                            "x2": 805.00262,
-                            "y1": 231.27731,
-                            "y2": 756.84045
-                        },
-                        "class": 5,
-                        "confidence": 0.87345,
-                        "name": "bus"
-                        },
-                        {
-                        "box": {
-                            "x1": 48.55046,
-                            "x2": 245.3456,
-                            "y1": 398.55231,
-                            "y2": 902.7027
-                        },
-                        "class": 0,
-                        "confidence": 0.86569,
-                        "name": "person"
-                        },
-                        {
-                        "box": {
-                            "x1": 669.4729,
-                            "x2": 809.72015,
-                            "y1": 392.18594,
-                            "y2": 877.03546
-                        },
-                        "class": 0,
-                        "confidence": 0.85284,
-                        "name": "person"
-                        },
-                        {
-                        "box": {
-                            "x1": 221.51729,
-                            "x2": 344.97061,
-                            "y1": 405.79865,
-                            "y2": 857.53662
-                        },
-                        "class": 0,
-                        "confidence": 0.82522,
-                        "name": "person"
-                        },
-                        {
-                        "box": {
-                            "x1": 0.0,
-                            "x2": 63.00691,
-                            "y1": 550.52502,
-                            "y2": 873.44293
-                        },
-                        "class": 0,
-                        "confidence": 0.26111,
-                        "name": "person"
-                        },
-                        {
-                        "box": {
-                            "x1": 0.05816,
-                            "x2": 32.55741,
-                            "y1": 254.4594,
-                            "y2": 324.87415
-                        },
-                        "class": 11,
-                        "confidence": 0.25507,
-                        "name": "stop sign"
-                        }
+                    .........
                     ],
                     "status": "SUCCESS",
                     "task_id": "f94c7d98-80c4-4e5d-b543-a6fa2ca332b3"
@@ -213,22 +157,23 @@ curl http://0.0.0.0:5000/
 
 
 
-### /start_task route is used to upload the image and add the task to the queue using the following the curl command
+### `/start_task` route is used to upload the image and add the task to the queue using the following the curl command
+Add your own path for the image
 
 ```bash
-curl -X POST -F "file=@test_images/bus.jpg" http://0.0.0.0:5000/start_task
+curl -X POST -F "file=@test/images/image5.jpg" http://0.0.0.0:5000/start_task
 ```
 
 If the task was accepted, then the api will return the following:
 
     {
-        "image":"bus.jpg",
+        "image":"image5.jpg",
         "status":"Accepted. Goto /task_result/<task_id> route to check status",
         "task_id":"3cee6d21-bdd5-4cb5-befd-34e2690b93be"
     }
 
 
-### /task_result/<task_id> route is used to check Task Status and Retrieve Results 
+### `/task_result/<task_id>` route is used to check Task Status and Retrieve Results 
 You can check the status of a task and fetch its results using the following curl command with the task ID:
 
 ```bash
@@ -245,7 +190,7 @@ If task is still pending, then api will return the following
 If task is successfully completed, then api will return the following
 
     {
-    "image_name": "bus.jpg",
+    "image_name": "image5.jpg",
     "result": [
         {
         "box": {
@@ -322,6 +267,34 @@ If task is successfully completed, then api will return the following
 
 
 
+## Running the Application with Automated Testing
+
+To run the application and execute automated tests in a test environment, follow these steps:
+
+1. **Start the Test Environment**:
+   Use the separate Docker Compose file (`docker-compose.test.yml`) to build and start the services, including the test runner:
+   ```bash
+   docker-compose -f docker-compose.test.yml up --build
+   ```
+
+2. **Execution of Tests**:
+   The tests will automatically run after the API service is up. You will see the output of the tests in the logs.
+
+3. **Viewing Logs**:
+   To view the logs and see the results of the tests, you can use:
+   ```bash
+   docker-compose -f docker-compose.test.yml logs test
+   ```
+
+4. **Stopping the Test Environment**:
+   To stop the test services after completion, run:
+   ```bash
+   docker-compose -f docker-compose.test.yml down
+   ```
+
+
+
+
 
 ### Architecture Design Diagram
 
@@ -329,22 +302,33 @@ If task is successfully completed, then api will return the following
 ```
 [ Client ]
     |
-    |  HTTP Request (Upload Image, Start Task, Retrieve Results)
+    |  HTTP Request (Upload Image, Start Task)
     v
 [ Flask Application ]
     |           |
     |           |  Publish Task
     |           |
     v           v
-[   Redis   ] <-------------------
+[       Redis     ] <--------------
     |           |                 |
     |           |  Fetch Task     |
     |           |                 |
     v           v                 |
-[ Celery Workers ] <-------------- 
-    |
+[ Celery Workers ] <--------------- 
+    |           |
     |  Run YOLO Model
-    |
-    v
-[ Store Results Back in Redis ]
+    |           |
+    |  Store Results Back in Redis
+    |           |
+    v           v
+[       Redis     ] 
+    |           |
+    |  Retrieve Task Status or Results
+    |           |
+    v           v
+[ Flask Application ]
+    |           
+    |  HTTP request(Task Result)
+    v           
+[ Client ]
 ```

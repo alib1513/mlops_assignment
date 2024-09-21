@@ -1,0 +1,41 @@
+version: '3.9'
+
+services:
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: ./flask_app
+      dockerfile: Dockerfile
+    ports:
+      - "${FLASK_RUN_PORT}:${FLASK_CONTAINER_PORT}"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    command: [ "gunicorn", "--workers", "${REPLICAS}", "--bind", "${FLASK_RUN_HOST}:${FLASK_RUN_PORT}", "app:app" ]
+
+  worker:
+    build:
+      context: ./celery_worker
+      dockerfile: Dockerfile
+    runtime: "nvidia"
+    depends_on:
+      - redis
+    command: [ "celery", "-A", "tasks.celery_worker", "worker", "--concurrency=1", "--loglevel=info" ]
+    env_file:
+      - .env
+    deploy:
+      replicas: ${REPLICAS}
+
+  test:
+    build:
+      context: ./test
+      dockerfile: Dockerfile.test
+    depends_on:
+      - api
+    environment:
+      - LOOP=1 # This can be used to repeat the test images and increase the number of requests per run
